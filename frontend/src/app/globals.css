@@ -1,0 +1,93 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+  font-family: 'Inter', Arial, Helvetica, sans-serif;
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+/* ───── Dark mode ───── */
+.dark {
+  --background: #0a0a0a;
+  --foreground: #ededed;
+}
+
+.dark,
+.dark *,
+.dark body,
+.dark html {
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+}
+
+.dark body,
+.dark html {
+  background-color: #111827 !important;
+  color: #f9fafb !important;
+}
+
+/* ───── Animations ───── */
+.animate-fade-in {
+  opacity: 0;
+  transform: translateY(40px);
+  transition: all 0.9s ease-out;
+}
+
+.animate-on-scroll {
+  opacity: 0;
+  transform: translateY(40px);
+  transition: all 0.9s ease-out;
+}
+
+.floating-shape {
+  animation: float 20s ease-in-out infinite;
+}
+.floating-shape:nth-child(2) {
+  animation-delay: -7s;
+  animation-duration: 26s;
+}
+.floating-shape:nth-child(3) {
+  animation-delay: -13s;
+  animation-duration: 18s;
+}
+
+@keyframes float {
+  0%,100% { transform: translate(0,0) rotate(0deg); }
+  25%      { transform: translate(30px,-30px) rotate(90deg); }
+  50%      { transform: translate(-20px,20px) rotate(180deg); }
+  75%      { transform: translate(20px,-10px) rotate(270deg); }
+}
+
+/* ───── Sidebar scrollbar ───── */
+.scrollbar-thin::-webkit-scrollbar          { width: 4px; }
+.scrollbar-thin::-webkit-scrollbar-track    { background: #f1f5f9; border-radius: 4px; }
+.scrollbar-thin::-webkit-scrollbar-thumb    { background: #cbd5e1; border-radius: 4px; }
+
+/* ───── Card resets ───── */
+@layer components {
+  .card {
+    @apply bg-white rounded-2xl shadow-sm border border-gray-200 p-6;
+  }
+  .btn-primary {
+    @apply bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600
+           text-white px-6 py-2.5 rounded-xl font-semibold transition-all duration-200 shadow-md hover:shadow-lg;
+  }
+  .btn-secondary {
+    @apply bg-gray-100 hover:bg-gray-200 text-gray-700 px-6 py-2.5 rounded-xl font-medium transition-colors;
+  }
+}
+
+/* Chat scroll */
+.chat-container { scroll-behavior: smooth; }
