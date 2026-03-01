@@ -192,25 +192,6 @@ export default function AnalyticsPage() {
                     </LineChart>
                 </ResponsiveContainer>
             </div>
-
-            {/* Income vs Expense Line */}
-            <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm hover:shadow-md transition-shadow">
-                <h2 className="text-base font-semibold text-gray-900 mb-5">Income vs Expense</h2>
-                <ResponsiveContainer width="100%" height={240}>
-                    <LineChart data={fin.monthlyData}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                        <XAxis dataKey="month" stroke="#94a3b8" tick={{ fontSize: 12 }} />
-                        <YAxis stroke="#94a3b8" tick={{ fontSize: 12 }} tickFormatter={formatINRChart} />
-                        <Tooltip
-                            formatter={(v, name) => [formatINR(v), name]}
-                            contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 24px rgba(0,0,0,0.10)' }}
-                        />
-                        <Legend wrapperStyle={{ fontSize: '12px' }} />
-                        <Line type="monotone" dataKey="income" stroke="#10b981" strokeWidth={2.5} dot={{ r: 4 }} name="Income" />
-                        <Line type="monotone" dataKey="expense" stroke="#ef4444" strokeWidth={2.5} dot={{ r: 4 }} name="Expenses" />
-                    </LineChart>
-                </ResponsiveContainer>
-            </div>
         </div>
     );
 }

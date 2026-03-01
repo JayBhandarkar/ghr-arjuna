@@ -71,22 +71,63 @@ function keywordFallback(description = '') {
 }
 
 /**
- * Generate a natural-language financial summary using Gemini.
+ * Generate a structured 6-section financial summary using Gemini.
+ * Returns plain text with bullet points that the frontend renders.
  */
 exports.generateFinancialSummary = async (transactions, analysis) => {
   try {
-    const geminiModel = genAI.getGenerativeModel({ model: 'gemini-pro' });
+    const geminiModel = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
-    const categoryList = Object.entries(analysis.categoryBreakdown || {})
-      .map(([cat, amt]) => `${cat}: $${Number(amt).toFixed(2)}`)
+    const savings = (analysis.totalIncome || 0) - (analysis.totalExpenses || 0);
+    const savingsRate = analysis.totalIncome > 0
+      ? Math.round((savings / analysis.totalIncome) * 100) : 0;
+
+    // Top 3 spending categories
+    const topCategories = Object.entries(analysis.categoryBreakdown || {})
+      .map(([cat, info]) => ({ cat, total: Number(info?.total ?? info) }))
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 3)
+      .map(({ cat, total }) => `${cat}: ₹${total.toFixed(0)}`)
       .join(', ');
 
-    const prompt = `You are a financial advisor. Analyse this data and write a concise 3-4 sentence summary with actionable insights:
-Total Income: $${analysis.totalIncome?.toFixed(2)}
-Total Expenses: $${analysis.totalExpenses?.toFixed(2)}
-Net Savings: $${(analysis.totalIncome - analysis.totalExpenses)?.toFixed(2)}
-Category breakdown: ${categoryList}
-Focus on savings potential, spending habits, and one concrete recommendation. Keep it under 120 words.`;
+    const allCategories = Object.entries(analysis.categoryBreakdown || {})
+      .map(([cat, info]) => `${cat}: ₹${Number(info?.total ?? info).toFixed(0)}`)
+      .join(', ');
+
+    const prompt = `You are a professional financial advisor for an Indian user. Analyse the transaction data below and generate a structured financial summary report.
+
+--- FINANCIAL DATA ---
+Total Income:      ₹${(analysis.totalIncome || 0).toFixed(0)}
+Total Expenses:    ₹${(analysis.totalExpenses || 0).toFixed(0)}
+Net Savings:       ₹${savings.toFixed(0)} (${savingsRate}% savings rate)
+Total Transactions: ${transactions.length}
+Category Breakdown: ${allCategories || 'Not available'}
+Top 3 Categories:  ${topCategories || 'Not available'}
+----------------------
+
+Generate a professional financial summary covering EXACTLY these 6 sections. Use ₹ (Indian Rupees). Each section must have a bold heading followed by 1–2 bullet points. Keep the entire response between 150–200 words.
+
+**1. Overall Financial Health**
+• [one sentence health assessment with savings rate]
+
+**2. Income vs Expense**
+• [comparison with actual numbers]
+
+**3. Top Spending Categories**
+• [mention top 2–3 categories with amounts]
+
+**4. Recurring Expenses**
+• [note any recurring/subscription patterns]
+
+**5. Risk Indicators**
+• [flag any financial risks like high EMI, low savings, overspending]
+
+**6. Actionable Recommendations**
+• [Recommendation 1]
+• [Recommendation 2]
+• [Recommendation 3]
+
+Use ONLY this format. Do not add any extra text outside the 6 sections. Use ₹ for all amounts.`;
 
     const result = await geminiModel.generateContent(prompt);
     const response = await result.response;
@@ -96,6 +137,12 @@ Focus on savings potential, spending habits, and one concrete recommendation. Ke
     const savings = (analysis.totalIncome || 0) - (analysis.totalExpenses || 0);
     const rate = analysis.totalIncome > 0
       ? Math.round((savings / analysis.totalIncome) * 100) : 0;
-    return `Your savings rate is ${rate}%. Total income: $${analysis.totalIncome?.toFixed(2)}, expenses: $${analysis.totalExpenses?.toFixed(2)}, net savings: $${savings.toFixed(2)}.`;
+    const topCats = Object.entries(analysis.categoryBreakdown || {})
+      .sort((a, b) => Number(b[1]?.total ?? b[1]) - Number(a[1]?.total ?? a[1]))
+      .slice(0, 2)
+      .map(([c]) => c).join(', ');
+
+    // Return structured fallback
+    return `**1. Overall Financial Health**\n• Savings rate is ${rate}% — ${rate >= 20 ? 'healthy and on track.' : 'below the recommended 20% target.'}\n\n**2. Income vs Expense**\n• Income: ₹${(analysis.totalIncome || 0).toFixed(0)} | Expenses: ₹${(analysis.totalExpenses || 0).toFixed(0)} | Net: ₹${savings.toFixed(0)}\n\n**3. Top Spending Categories**\n• ${topCats || 'Data not available'}\n\n**4. Recurring Expenses**\n• Review subscriptions and EMIs for regular outflows.\n\n**5. Risk Indicators**\n• ${rate < 10 ? 'Very low savings — high financial risk.' : rate < 20 ? 'Savings below 20% target — moderate risk.' : 'No major risk indicators detected.'}\n\n**6. Actionable Recommendations**\n• Increase savings to at least 20% of income.\n• Review and reduce top spending categories.\n• Build an emergency fund of 3–6 months expenses.`;
   }
 };

@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import KPICard from '@/components/KPICard';
 import FinancialScore from '@/components/FinancialScore';
-import { ExpensePieChart, MonthlyTrendChart, IncomeVsExpenseChart } from '@/components/Charts';
+import { ExpensePieChart, MonthlyTrendChart } from '@/components/Charts';
 import RecurringPayments from '@/components/RecurringPayments';
 import AIInsights from '@/components/AIInsights';
 import TransactionsTable from '@/components/TransactionsTable';
@@ -27,7 +27,7 @@ const quickActions = [
 
 export default function Dashboard() {
   const { user, login: refreshAuth } = useAuth();
-  const { hasRealData, computed: realFin, statementMeta } = useStatement();
+  const { hasRealData, computed: realFin, statementMeta, aiSummary: geminiSummary } = useStatement();
   const firstName = user?.name?.split(' ')[0] || 'there';
 
   const now = new Date();
@@ -83,16 +83,19 @@ export default function Dashboard() {
   const savingsRate = fin.totalIncome > 0 ? Math.round((fin.netSavings / fin.totalIncome) * 100) : 0;
 
   const aiInsights = {
-    summary: hasRealData
-      ? `Based on your uploaded statement (${statementMeta?.totalFound ?? fin.transactions?.length} transactions), your total income is ${formatINR(fin.totalIncome)} and total expenses are ${formatINR(fin.totalExpenses)}. Your savings rate is ${savingsRate}%.`
-      : annualIncome > 0
-        ? `Based on your annual income of ${formatINR(annualIncome)}, your monthly income is ${formatINR(fin.monthly)}. You are ${savingsRate >= 20 ? 'saving well' : 'below the 20% savings target'} with a ${savingsRate}% savings rate.`
-        : 'Upload a bank statement or add your annual income in Settings to unlock personalised AI insights.',
+    summary: hasRealData && geminiSummary
+      ? geminiSummary   // ← real Gemini output
+      : hasRealData
+        ? `Based on your uploaded statement (${statementMeta?.totalFound ?? fin.transactions?.length} transactions), your total income is ${formatINR(fin.totalIncome)} and total expenses are ${formatINR(fin.totalExpenses)}. Your savings rate is ${savingsRate}%.`
+        : annualIncome > 0
+          ? `Based on your annual income of ${formatINR(annualIncome)}, your monthly income is ${formatINR(fin.monthly)}. You are ${savingsRate >= 20 ? 'saving well' : 'below the 20% savings target'} with a ${savingsRate}% savings rate.`
+          : 'Upload a bank statement or add your annual income in Settings to unlock personalised AI insights.',
     highlights: fin.totalIncome > 0 ? [
       { label: hasRealData ? 'Total Income' : 'Annual Income', value: formatINR(hasRealData ? fin.totalIncome : annualIncome) },
       { label: 'Savings Rate', value: `${savingsRate}%` },
       { label: 'Budget Status', value: fin.netSavings > 0 ? 'On Track ✓' : 'Over Budget' },
     ] : [],
+    isGemini: !!(hasRealData && geminiSummary),
   };
 
   if (loadingDb) {
@@ -229,8 +232,6 @@ export default function Dashboard() {
               <MonthlyTrendChart data={fin.monthlyData?.map(m => ({ month: m.month, expenses: m.expense }))} />
             </div>
           </div>
-
-          <IncomeVsExpenseChart data={fin.monthlyData?.map(m => ({ month: m.month, income: m.income, expense: m.expense }))} />
 
           {/* ── Recurring + Transactions ── */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">

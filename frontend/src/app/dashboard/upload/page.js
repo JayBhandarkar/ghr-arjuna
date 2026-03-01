@@ -52,6 +52,8 @@ export default function UploadPage() {
   const [dragActive, setDragActive] = useState(false);
   const [file, setFile] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);  // for the "Upload to Dashboard" step
+  const [uploaded, setUploaded] = useState(false);    // final success state
   const [error, setError] = useState('');
   const [result, setResult] = useState(null);   // extracted data from backend
   const [tab, setTab] = useState('transactions'); // 'transactions' | 'raw'
@@ -101,13 +103,17 @@ export default function UploadPage() {
       setTab('transactions');
       // ── Push to global context so all dashboard pages use real data ──
       if (data.transactions?.length > 0) {
-        saveStatement(data.transactions, {
-          fileName: data.fileName,
-          fileType: data.fileType,
-          fileSize: data.fileSize,
-          totalFound: data.totalFound,
-          uploadedAt: new Date().toISOString(),
-        });
+        saveStatement(
+          data.transactions,
+          {
+            fileName: data.fileName,
+            fileType: data.fileType,
+            fileSize: data.fileSize,
+            totalFound: data.totalFound,
+            uploadedAt: new Date().toISOString(),
+          },
+          data.aiSummary || null,  // Gemini-generated summary
+        );
       }
     } catch (err) {
       setError(err.response?.data?.message || 'Extraction failed. Please try again.');
@@ -116,12 +122,31 @@ export default function UploadPage() {
     }
   };
 
+  // ── Upload to DB (persists to backend) ──────────────────────────────────────
+  const handleUploadToDashboard = async () => {
+    if (!file) return;
+    setUploading(true);
+    setError('');
+    try {
+      const formData = new FormData();
+      formData.append('statement', file);
+      await statements.upload(formData);   // saves to DB in background
+      setUploaded(true);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Upload failed. Please try again.');
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const reset = () => {
     setFile(null);
     setResult(null);
     setError('');
     setLoading(false);
-    clearStatement(); // clear global context when user resets
+    setUploading(false);
+    setUploaded(false);
+    clearStatement();
   };
 
   // ── File type icon ───────────────────────────────────────────────────────────
@@ -200,13 +225,26 @@ export default function UploadPage() {
                     <span className="text-sm font-medium">Extracting content…</span>
                   </div>
                 ) : (
-                  <div className="flex gap-3 justify-center">
+                  <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                    {/* Button 1 — Extract & Preview */}
                     <button
                       onClick={handleExtract}
                       className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500
                         text-white font-semibold rounded-xl shadow hover:shadow-md transition-all text-sm"
                     >
                       <Eye className="w-4 h-4" /> Extract &amp; Preview
+                    </button>
+                    {/* Button 2 — Upload Transaction Statement */}
+                    <button
+                      onClick={handleUploadToDashboard}
+                      disabled={uploading}
+                      className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-blue-500 to-indigo-500
+                        text-white font-semibold rounded-xl shadow hover:shadow-md transition-all text-sm disabled:opacity-60"
+                    >
+                      {uploading
+                        ? <><Loader2 className="w-4 h-4 animate-spin" /> Uploading…</>
+                        : <><Upload className="w-4 h-4" /> Upload Transaction Statement</>
+                      }
                     </button>
                     <button
                       onClick={reset}
@@ -266,6 +304,75 @@ export default function UploadPage() {
               </div>
             </div>
           )}
+
+          {/* ── Uploaded to DB banner ── */}
+          {uploaded && (
+            <div className="flex items-start gap-3 bg-blue-50 border border-blue-200 rounded-2xl px-5 py-4 text-sm text-blue-800">
+              <CheckCircle className="w-5 h-5 shrink-0 mt-0.5 text-blue-600" />
+              <div>
+                <p className="font-semibold">Statement saved to your account ✅</p>
+                <p className="text-blue-700 mt-0.5">Your transactions have been uploaded and will appear in your financial history.</p>
+              </div>
+            </div>
+          )}
+
+          {/* ── AI Summary preview ── */}
+          {result.aiSummary && (() => {
+            // Parse sections: **1. Title** followed by • bullets
+            const sections = [];
+            const blocks = result.aiSummary.split(/\*\*(\d+\.\s*[^*]+)\*\*/g);
+            for (let i = 1; i < blocks.length; i += 2) {
+              const heading = blocks[i].trim();
+              const body = (blocks[i + 1] || '').trim();
+              const number = heading.match(/^(\d+)/)?.[1] || '';
+              const title = heading.replace(/^\d+\.\s*/, '');
+              const bullets = body.split('\n').map(l => l.replace(/^[•\-\*]\s*/, '').trim()).filter(Boolean);
+              if (title) sections.push({ number, title, bullets });
+            }
+            const icons = { '1': '💰', '2': '📊', '3': '🏷️', '4': '🔄', '5': '⚠️', '6': '✅' };
+            const colors = [
+              'bg-emerald-50 border-emerald-100', 'bg-blue-50 border-blue-100',
+              'bg-purple-50 border-purple-100', 'bg-orange-50 border-orange-100',
+              'bg-red-50 border-red-100', 'bg-teal-50 border-teal-100',
+            ];
+            return (
+              <div className="bg-gradient-to-br from-violet-50 via-slate-50 to-teal-50 border border-violet-200 rounded-2xl p-5">
+                {/* Header */}
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="p-1.5 bg-gradient-to-br from-violet-500 to-indigo-600 rounded-lg">
+                    <CheckCircle className="w-3.5 h-3.5 text-white" />
+                  </div>
+                  <span className="text-sm font-bold text-gray-900">AI Financial Summary</span>
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-violet-100 border border-violet-200 text-violet-700 text-[10px] font-bold rounded-full uppercase tracking-wider">
+                    ⚡ Powered by LLM
+                  </span>
+                </div>
+
+                {sections.length > 0 ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {sections.map((sec, i) => (
+                      <div key={i} className={`rounded-xl border p-3 ${colors[i % colors.length]}`}>
+                        <div className="flex items-center gap-1.5 mb-1.5">
+                          <span className="text-sm">{icons[sec.number] || '📌'}</span>
+                          <span className="text-[11px] font-bold text-gray-600 uppercase tracking-wide">{sec.title}</span>
+                        </div>
+                        <ul className="space-y-1">
+                          {sec.bullets.map((b, j) => (
+                            <li key={j} className="flex items-start gap-2 text-xs text-gray-700">
+                              <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-gray-400 shrink-0" />
+                              {b}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-line">{result.aiSummary}</p>
+                )}
+              </div>
+            );
+          })()}
 
           {/* Tab switcher */}
           <div className="flex gap-2 bg-gray-100 p-1 rounded-xl w-fit">

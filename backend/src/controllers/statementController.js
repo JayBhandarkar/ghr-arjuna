@@ -39,6 +39,24 @@ exports.extractStatement = async (req, res) => {
       transactions = transactions.map((t, i) => ({ ...t, category: categories[i] || 'Other' }));
     }
 
+    // ── Build analysis object for Gemini ────────────────────────────────────
+    const totalIncome = transactions.filter(t => t.type === 'credit').reduce((s, t) => s + Math.abs(parseFloat(t.amount) || 0), 0);
+    const totalExpenses = transactions.filter(t => t.type === 'debit').reduce((s, t) => s + Math.abs(parseFloat(t.amount) || 0), 0);
+
+    const categoryBreakdown = {};
+    transactions.filter(t => t.type === 'debit').forEach(t => {
+      const cat = t.category || 'Other';
+      categoryBreakdown[cat] = (categoryBreakdown[cat] || 0) + Math.abs(parseFloat(t.amount) || 0);
+    });
+    // Convert to object format expected by generateFinancialSummary
+    const categoryBreakdownObj = {};
+    Object.entries(categoryBreakdown).forEach(([cat, total]) => {
+      categoryBreakdownObj[cat] = { total, count: 1 };
+    });
+
+    const analysis = { totalIncome, totalExpenses, categoryBreakdown: categoryBreakdownObj };
+    const aiSummary = await aiService.generateFinancialSummary(transactions, analysis);
+
     res.json({
       fileName: req.file.originalname,
       fileType,
@@ -46,6 +64,8 @@ exports.extractStatement = async (req, res) => {
       rawText: rawText.trim(),
       transactions,
       totalFound: transactions.length,
+      aiSummary,
+      analysis: { totalIncome, totalExpenses, netSavings: totalIncome - totalExpenses },
     });
   } catch (error) {
     console.error('Extraction error:', error);

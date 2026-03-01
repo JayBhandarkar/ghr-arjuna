@@ -223,18 +223,19 @@ export function computeFinancialsFromTransactions(transactions = []) {
 export function StatementProvider({ children }) {
     // raw parsed transactions array from the upload page
     const [parsedTransactions, setParsedTransactions] = useState(null);
-    // metadata about the uploaded file
     const [statementMeta, setStatementMeta] = useState(null);
+    const [aiSummary, setAiSummary] = useState(null);
 
     // Hydrate from localStorage on mount (survives page refresh / navigation)
     useEffect(() => {
         try {
             const stored = localStorage.getItem(LS_KEY);
             if (stored) {
-                const { transactions, meta } = JSON.parse(stored);
+                const { transactions, meta, aiSummary: savedSummary } = JSON.parse(stored);
                 if (Array.isArray(transactions) && transactions.length > 0) {
                     setParsedTransactions(transactions);
                     setStatementMeta(meta || null);
+                    setAiSummary(savedSummary || null);
                 }
             }
         } catch (_) { /* ignore */ }
@@ -244,18 +245,19 @@ export function StatementProvider({ children }) {
      * Called by the upload page after a successful extraction.
      * Persists to localStorage so other pages see it immediately.
      */
-    const saveStatement = useCallback((transactions, meta = {}) => {
+    const saveStatement = useCallback((transactions, meta = {}, summary = null) => {
         setParsedTransactions(transactions);
         setStatementMeta(meta);
+        setAiSummary(summary);
         try {
-            localStorage.setItem(LS_KEY, JSON.stringify({ transactions, meta }));
+            localStorage.setItem(LS_KEY, JSON.stringify({ transactions, meta, aiSummary: summary }));
         } catch (_) { /* quota exceeded or private mode */ }
     }, []);
 
-    /** Clear parsed data (e.g. user uploads a new file) */
     const clearStatement = useCallback(() => {
         setParsedTransactions(null);
         setStatementMeta(null);
+        setAiSummary(null);
         try { localStorage.removeItem(LS_KEY); } catch (_) { }
     }, []);
 
@@ -267,8 +269,9 @@ export function StatementProvider({ children }) {
             value={{
                 parsedTransactions,
                 statementMeta,
-                computed,       // pre-aggregated financials — null if no data uploaded
-                hasRealData,    // boolean flag for conditional rendering
+                aiSummary,
+                computed,
+                hasRealData,
                 saveStatement,
                 clearStatement,
             }}
