@@ -1,39 +1,54 @@
-# Dependencies
+# ── Dependencies ─────────────────────────────────────────────────────────────
 node_modules/
 package-lock.json
 yarn.lock
 
-# Environment variables
+# ── Environment variables (NEVER commit secrets) ──────────────────────────────
 .env
 .env.local
+.env.development
 .env.production
+.env.test
 
-# Next.js
+# ── Next.js build output ─────────────────────────────────────────────────────
 .next/
 out/
 build/
+dist/
 
-# Logs
+# ── Logs ─────────────────────────────────────────────────────────────────────
 *.log
 npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
-# OS
+# ── OS generated files ────────────────────────────────────────────────────────
 .DS_Store
 Thumbs.db
+Desktop.ini
 
-# IDE
+# ── IDE / Editor ─────────────────────────────────────────────────────────────
 .vscode/
 .idea/
+*.swp
+*.swo
 
-# Uploads
+# ── Uploaded user files ───────────────────────────────────────────────────────
 uploads/
 
-# ML model large binary files (> 100 MB — use Git LFS or download separately)
+# ── ML model large binary files (> 100 MB) ───────────────────────────────────
+# Store these on Hugging Face, Google Drive, or use Git LFS
 ml_service/transaction_model/model.safetensors
 ml_service/transaction_model/*.bin
+ml_service/transaction_model/*.pt
 ml_service/__pycache__/
 ml_service/*.pyc
+**/__pycache__/
+**/*.pyc
 
-# Sample / helper files
+# ── Python test cache ─────────────────────────────────────────────────────────
+.pytest_cache/
+
+# ── Sample / one-off helper files ─────────────────────────────────────────────
 sample_bank_statement.*
 generate-sample-pdf.js
