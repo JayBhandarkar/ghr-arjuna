@@ -9,7 +9,9 @@ import {
   Heart, Upload, X, ArrowRight, Clock
 } from 'lucide-react';
 import { useAuth } from '@/lib/AuthContext';
+import { deriveFinancials } from '@/lib/deriveFinancials';
 import { mockData } from '@/data/mockData';
+import { formatINR } from '@/lib/formatINR';
 
 /* ─── Searchable destinations ─── */
 const PAGES = [
@@ -247,7 +249,7 @@ export default function Navbar({ onMenuClick }) {
                             <p className="text-xs text-gray-400">{tx.category} · {tx.date}</p>
                           </div>
                           <span className={`text-sm font-bold shrink-0 ${tx.type === 'credit' ? 'text-emerald-600' : 'text-red-500'}`}>
-                            {tx.type === 'credit' ? '+' : '-'}${Math.abs(tx.amount).toFixed(2)}
+                            {tx.type === 'credit' ? '+' : '-'}{formatINR(Math.abs(tx.amount))}
                           </span>
                         </button>
                       );

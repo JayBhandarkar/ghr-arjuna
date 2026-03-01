@@ -1,5 +1,6 @@
 import './globals.css';
 import { AuthProvider } from '@/lib/AuthContext';
+import { StatementProvider } from '@/lib/StatementContext';
 
 export const metadata = {
   title: 'BankAI - Financial Intelligence Platform',
@@ -11,7 +12,9 @@ export default function RootLayout({ children }) {
     <html lang="en">
       <body>
         <AuthProvider>
-          {children}
+          <StatementProvider>
+            {children}
+          </StatementProvider>
         </AuthProvider>
       </body>
     </html>

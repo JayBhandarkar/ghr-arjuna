@@ -1,3 +1,5 @@
+import { formatINR } from '@/lib/formatINR';
+
 export default function RecurringPayments({ payments }) {
   return (
     <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 hover:shadow-md transition-shadow h-full">
@@ -14,7 +16,7 @@ export default function RecurringPayments({ payments }) {
                 {payment.frequency}
               </span>
             </div>
-            <p className="text-base font-bold text-gray-900">${payment.amount.toFixed(2)}</p>
+            <p className="text-base font-bold text-gray-900">{formatINR(payment.amount)}</p>
           </div>
         ))}
       </div>

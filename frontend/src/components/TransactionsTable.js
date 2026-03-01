@@ -1,3 +1,5 @@
+import { formatINR } from '@/lib/formatINR';
+
 export default function TransactionsTable({ transactions }) {
   return (
     <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 hover:shadow-md transition-shadow">
@@ -26,7 +28,7 @@ export default function TransactionsTable({ transactions }) {
                   </span>
                 </td>
                 <td className={`py-3 px-4 text-right font-bold ${t.type === 'credit' ? 'text-emerald-600' : 'text-red-500'}`}>
-                  {t.type === 'credit' ? '+' : '-'}${Math.abs(t.amount).toFixed(2)}
+                  {t.type === 'credit' ? '+' : '-'}{formatINR(Math.abs(t.amount))}
                 </td>
               </tr>
             ))}

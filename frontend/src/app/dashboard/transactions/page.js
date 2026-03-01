@@ -4,18 +4,23 @@ import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Search, Filter, ArrowUpRight, ArrowDownRight, Download, X } from 'lucide-react';
 import { useAuth } from '@/lib/AuthContext';
+import { useStatement } from '@/lib/StatementContext';
 import { deriveFinancials } from '@/lib/deriveFinancials';
 import { mockData } from '@/data/mockData';
+import { formatINR } from '@/lib/formatINR';
 
 const CATEGORY_COLORS = {
-  'Food & Dining': 'bg-orange-100 text-orange-700',
-  'Income': 'bg-emerald-100 text-emerald-700',
-  'Transportation': 'bg-blue-100   text-blue-700',
+  // ML model label names (exact match from label_encoder.pkl)
+  'Food': 'bg-orange-100 text-orange-700',
+  'Transport': 'bg-blue-100   text-blue-700',
   'Shopping': 'bg-pink-100   text-pink-700',
+  'Utilities': 'bg-yellow-100 text-yellow-700',
   'Entertainment': 'bg-purple-100 text-purple-700',
   'Healthcare': 'bg-red-100    text-red-700',
-  'Bills & Utilities': 'bg-yellow-100 text-yellow-700',
-  'Health & Fitness': 'bg-teal-100   text-teal-700',
+  'EMI': 'bg-teal-100   text-teal-700',
+  'Investment': 'bg-emerald-100 text-emerald-700',
+  'Rent': 'bg-indigo-100  text-indigo-700',
+  'Other': 'bg-gray-100   text-gray-600',
 };
 
 /* Inner component that uses useSearchParams — wrapped in Suspense below */
@@ -23,13 +28,14 @@ function TransactionsContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { user } = useAuth();
+  const { hasRealData, computed: realFin, statementMeta } = useStatement();
   const urlQuery = searchParams.get('q') || '';
 
   const [search, setSearch] = useState(urlQuery);
   const [filter, setFilter] = useState('all');
 
-  // Derive income-based transactions
-  const fin = deriveFinancials(user?.annualIncome || mockData.kpis.totalIncome * 12);
+  // Pick data source
+  const fin = hasRealData ? realFin : deriveFinancials(user?.annualIncome || mockData.kpis.totalIncome * 12);
   const allTransactions = fin.transactions;
 
   // Sync with URL param whenever it changes (e.g. new search from navbar)
@@ -66,6 +72,19 @@ function TransactionsContent() {
         </button>
       </div>
 
+      {/* Data source banner */}
+      {hasRealData ? (
+        <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-2.5 text-sm text-emerald-700">
+          <ArrowUpRight className="w-4 h-4 shrink-0" />
+          <span>Showing <strong>real data</strong> from <strong>{statementMeta?.fileName ?? 'your statement'}</strong> · {allTransactions.length} transactions</span>
+        </div>
+      ) : (
+        <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl px-4 py-2.5 text-sm text-amber-700">
+          <Filter className="w-4 h-4 shrink-0" />
+          <span>Showing <strong>estimated data</strong> based on income. <a href="/dashboard/upload" className="underline font-semibold">Upload a statement</a> to see real transactions.</span>
+        </div>
+      )}
+
       {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
         <div className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm flex items-center gap-4 hover:shadow-md transition-shadow">
@@ -74,7 +93,7 @@ function TransactionsContent() {
           </div>
           <div>
             <p className="text-sm text-gray-500">Total Income</p>
-            <p className="text-2xl font-bold text-emerald-600">+${totalCredit.toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
+            <p className="text-2xl font-bold text-emerald-600">+{formatINR(totalCredit)}</p>
           </div>
         </div>
         <div className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm flex items-center gap-4 hover:shadow-md transition-shadow">
@@ -83,7 +102,7 @@ function TransactionsContent() {
           </div>
           <div>
             <p className="text-sm text-gray-500">Total Expenses</p>
-            <p className="text-2xl font-bold text-red-500">-${totalDebit.toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
+            <p className="text-2xl font-bold text-red-500">-{formatINR(totalDebit)}</p>
           </div>
         </div>
         <div className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm flex items-center gap-4 hover:shadow-md transition-shadow">
@@ -93,7 +112,7 @@ function TransactionsContent() {
           <div>
             <p className="text-sm text-gray-500">Net Balance</p>
             <p className={`text-2xl font-bold ${netBalance >= 0 ? 'text-blue-600' : 'text-orange-600'}`}>
-              {netBalance >= 0 ? '+' : '-'}${Math.abs(netBalance).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+              {netBalance >= 0 ? '+' : '-'}{formatINR(Math.abs(netBalance))}
             </p>
           </div>
         </div>
@@ -193,7 +212,7 @@ function TransactionsContent() {
                       </span>
                     </td>
                     <td className={`py-4 px-4 text-right font-bold ${t.type === 'credit' ? 'text-emerald-600' : 'text-red-500'}`}>
-                      {t.type === 'credit' ? '+' : '-'}${Math.abs(t.amount).toFixed(2)}
+                      {t.type === 'credit' ? '+' : '-'}{formatINR(Math.abs(t.amount))}
                     </td>
                     <td className="py-4 px-4 text-center">
                       <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${t.type === 'credit'

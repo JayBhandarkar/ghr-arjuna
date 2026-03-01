@@ -27,3 +27,13 @@ Thumbs.db
 
 # Uploads
 uploads/
+
+# ML model large binary files (> 100 MB — use Git LFS or download separately)
+ml_service/transaction_model/model.safetensors
+ml_service/transaction_model/*.bin
+ml_service/__pycache__/
+ml_service/*.pyc
+
+# Sample / helper files
+sample_bank_statement.*
+generate-sample-pdf.js

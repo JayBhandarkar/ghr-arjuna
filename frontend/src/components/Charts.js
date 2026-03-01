@@ -5,9 +5,11 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid,
   BarChart, Bar,
 } from 'recharts';
+import { formatINR, formatINRChart } from '@/lib/formatINR';
 
 const EMERALD_PALETTE = [
   '#10b981', '#0ea5e9', '#8b5cf6', '#f59e0b', '#ec4899', '#ef4444',
+  '#14b8a6', '#6366f1', '#f97316', '#22c55e',
 ];
 
 export function ExpensePieChart({ data }) {
@@ -29,7 +31,10 @@ export function ExpensePieChart({ data }) {
               <Cell key={`cell-${i}`} fill={EMERALD_PALETTE[i % EMERALD_PALETTE.length]} />
             ))}
           </Pie>
-          <Tooltip formatter={(v) => `$${v.toLocaleString()}`} contentStyle={{ borderRadius: '12px', border: '1px solid #e5e7eb' }} />
+          <Tooltip
+            formatter={(v) => [formatINR(v), 'Amount']}
+            contentStyle={{ borderRadius: '12px', border: '1px solid #e5e7eb' }}
+          />
           <Legend wrapperStyle={{ fontSize: '12px' }} />
         </PieChart>
       </ResponsiveContainer>
@@ -45,9 +50,9 @@ export function MonthlyTrendChart({ data }) {
         <LineChart data={data}>
           <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
           <XAxis dataKey="month" stroke="#94a3b8" tick={{ fontSize: 12 }} />
-          <YAxis stroke="#94a3b8" tick={{ fontSize: 12 }} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
+          <YAxis stroke="#94a3b8" tick={{ fontSize: 12 }} tickFormatter={formatINRChart} />
           <Tooltip
-            formatter={(v) => `$${v.toLocaleString()}`}
+            formatter={(v) => [formatINR(v), 'Expenses']}
             contentStyle={{ borderRadius: '12px', border: '1px solid #e5e7eb' }}
           />
           <Line
@@ -72,9 +77,9 @@ export function IncomeVsExpenseChart({ data }) {
         <BarChart data={data} barSize={28} barGap={4}>
           <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
           <XAxis dataKey="month" stroke="#94a3b8" tick={{ fontSize: 12 }} />
-          <YAxis stroke="#94a3b8" tick={{ fontSize: 12 }} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
+          <YAxis stroke="#94a3b8" tick={{ fontSize: 12 }} tickFormatter={formatINRChart} />
           <Tooltip
-            formatter={(v) => `$${v.toLocaleString()}`}
+            formatter={(v, name) => [formatINR(v), name.charAt(0).toUpperCase() + name.slice(1)]}
             contentStyle={{ borderRadius: '12px', border: '1px solid #e5e7eb' }}
           />
           <Legend wrapperStyle={{ fontSize: '12px' }} />

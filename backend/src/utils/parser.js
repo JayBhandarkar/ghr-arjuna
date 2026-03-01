@@ -44,25 +44,52 @@ exports.extractTransactions = (text) => {
   const lines = text.split('\n');
 
   const datePattern = /(\d{1,2}[-\/]\d{1,2}[-\/]\d{2,4})/;
-  const amountPattern = /(\d[\d,]*\.?\d{0,2})/;
+  // Amount: commas allowed, optional decimal, optional leading minus
+  const amountPattern = /(-?\d[\d,]*\.\d{2}|-?\d[\d,]{2,})/;
+
+  // Keywords that indicate a debit transaction
+  const debitKeywords = /\b(dr\.?|debit|withdrawal|withdraw|paid|payment|purchase|expense|spent)\b/i;
+  // Keywords that indicate a credit transaction
+  const creditKeywords = /\b(cr\.?|credit|deposit|received|salary|income|refund|transfer in)\b/i;
 
   lines.forEach(line => {
     const dateMatch = line.match(datePattern);
-    const amountMatch = line.match(amountPattern);
+    if (!dateMatch) return;
 
-    if (dateMatch && amountMatch) {
-      const description = line
-        .replace(datePattern, '')
-        .replace(amountPattern, '')
-        .replace(/[|]{1,}/g, ' ')
-        .trim();
+    // ── Search for amount AFTER the date to avoid matching date digits ──────
+    const dateEnd = line.indexOf(dateMatch[1]) + dateMatch[1].length;
+    const lineAfterDate = line.slice(dateEnd);
+    const amountMatch = lineAfterDate.match(amountPattern);
+    if (!amountMatch) return;
 
-      transactions.push({
-        date: dateMatch[1],
-        description: description || 'Transaction',
-        amount: parseFloat(amountMatch[1].replace(',', '')),
-      });
+    const rawAmount = parseFloat(amountMatch[1].replace(/,/g, ''));
+    if (isNaN(rawAmount) || rawAmount === 0) return;
+
+    // Determine type: keyword-based first, then sign of amount
+    let type;
+    if (debitKeywords.test(line)) {
+      type = 'debit';
+    } else if (creditKeywords.test(line)) {
+      type = 'credit';
+    } else {
+      type = rawAmount < 0 ? 'debit' : 'credit';
     }
+
+    // Build description: remove date, remove the matched amount, strip separators
+    const description = line
+      .replace(datePattern, '')
+      .replace(amountMatch[1], '')        // remove only the matched amount string
+      .replace(/\|+/g, ' ')               // strip pipe separators
+      .replace(/\b(dr\.?|cr\.?)\b/gi, '') // strip bare Dr/Cr labels
+      .replace(/\s{2,}/g, ' ')
+      .trim();
+
+    transactions.push({
+      date: dateMatch[1],
+      description: description || 'Transaction',
+      amount: Math.abs(rawAmount),
+      type,
+    });
   });
 
   return transactions;

@@ -6,6 +6,8 @@ import {
   X, Eye, Table, ArrowUpRight, ArrowDownRight, File, Copy, ClipboardCheck,
 } from 'lucide-react';
 import { statements } from '@/lib/api';
+import { formatINR } from '@/lib/formatINR';
+import { useStatement } from '@/lib/StatementContext';
 
 // ── Tiny copy-to-clipboard hook ───────────────────────────────────────────────
 function useCopy() {
@@ -55,6 +57,7 @@ export default function UploadPage() {
   const [tab, setTab] = useState('transactions'); // 'transactions' | 'raw'
   const { copied: copiedTx, copy: copyTx } = useCopy();
   const { copied: copiedRaw, copy: copyRaw } = useCopy();
+  const { saveStatement, clearStatement } = useStatement();
 
   // ── Drag & Drop ─────────────────────────────────────────────────────────────
   const handleDrag = (e) => {
@@ -96,6 +99,16 @@ export default function UploadPage() {
       const { data } = await statements.extract(formData);
       setResult(data);
       setTab('transactions');
+      // ── Push to global context so all dashboard pages use real data ──
+      if (data.transactions?.length > 0) {
+        saveStatement(data.transactions, {
+          fileName: data.fileName,
+          fileType: data.fileType,
+          fileSize: data.fileSize,
+          totalFound: data.totalFound,
+          uploadedAt: new Date().toISOString(),
+        });
+      }
     } catch (err) {
       setError(err.response?.data?.message || 'Extraction failed. Please try again.');
     } finally {
@@ -108,6 +121,7 @@ export default function UploadPage() {
     setResult(null);
     setError('');
     setLoading(false);
+    clearStatement(); // clear global context when user resets
   };
 
   // ── File type icon ───────────────────────────────────────────────────────────
@@ -240,6 +254,19 @@ export default function UploadPage() {
             </button>
           </div>
 
+          {/* ── Live data notice ── */}
+          {result.transactions?.length > 0 && (
+            <div className="flex items-start gap-3 bg-emerald-50 border border-emerald-200 rounded-2xl px-5 py-4 text-sm text-emerald-800">
+              <CheckCircle className="w-5 h-5 shrink-0 mt-0.5 text-emerald-600" />
+              <div>
+                <p className="font-semibold">Data is now live across all pages! 🎉</p>
+                <p className="text-emerald-700 mt-0.5">
+                  All dashboard pages — <strong>Overview, Transactions, Analytics,</strong> and <strong>Score</strong> — are now using your real parsed data. Navigate to any page to see it.
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Tab switcher */}
           <div className="flex gap-2 bg-gray-100 p-1 rounded-xl w-fit">
             <button
@@ -271,14 +298,14 @@ export default function UploadPage() {
                     onClick={() => {
                       const header = 'Date\tDescription\tAmount\tType';
                       const rows = result.transactions.map((t, i) => {
-                        const isCredit = t.type === 'credit' || (t.amount > 0 && t.type !== 'debit');
-                        return `${t.date || '—'}\t${t.description || t.merchant || '—'}\t$${Math.abs(parseFloat(t.amount || 0)).toFixed(2)}\t${isCredit ? 'Credit' : 'Debit'}`;
+                        const isCredit = (t.type ?? 'credit') !== 'debit';
+                        return `${t.date || '—'}\t${t.description || t.merchant || '—'}\t${formatINR(Math.abs(parseFloat(t.amount || 0)))}\t${isCredit ? 'Credit' : 'Debit'}`;
                       });
                       copyTx([header, ...rows].join('\n'));
                     }}
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${copiedTx
-                        ? 'bg-emerald-100 text-emerald-700'
-                        : 'bg-gray-100 hover:bg-gray-200 text-gray-600'
+                      ? 'bg-emerald-100 text-emerald-700'
+                      : 'bg-gray-100 hover:bg-gray-200 text-gray-600'
                       }`}
                   >
                     {copiedTx
@@ -303,13 +330,27 @@ export default function UploadPage() {
                           <th className="text-left py-3 px-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">#</th>
                           <th className="text-left py-3 px-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">Date</th>
                           <th className="text-left py-3 px-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">Description</th>
+                          <th className="text-left py-3 px-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">Category</th>
                           <th className="text-right py-3 px-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">Amount</th>
                           <th className="text-center py-3 px-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">Type</th>
                         </tr>
                       </thead>
                       <tbody>
                         {result.transactions.map((t, i) => {
-                          const isCredit = t.type === 'credit' || (t.amount > 0 && t.type !== 'debit');
+                          const isCredit = (t.type ?? 'credit') !== 'debit';
+                          const catColors = {
+                            'Food': 'bg-orange-100 text-orange-700',
+                            'Transport': 'bg-blue-100 text-blue-700',
+                            'Shopping': 'bg-pink-100 text-pink-700',
+                            'Utilities': 'bg-yellow-100 text-yellow-700',
+                            'Entertainment': 'bg-purple-100 text-purple-700',
+                            'Healthcare': 'bg-red-100 text-red-700',
+                            'EMI': 'bg-teal-100 text-teal-700',
+                            'Investment': 'bg-emerald-100 text-emerald-700',
+                            'Rent': 'bg-indigo-100 text-indigo-700',
+                            'Other': 'bg-gray-100 text-gray-600',
+                          };
+                          const catStyle = catColors[t.category] || catColors['Other'];
                           return (
                             <tr key={i} className="border-b border-gray-50 hover:bg-emerald-50/30 transition-colors">
                               <td className="py-3 px-4 text-gray-400 text-xs">{i + 1}</td>
@@ -317,8 +358,15 @@ export default function UploadPage() {
                               <td className="py-3 px-4 font-medium text-gray-900 max-w-xs truncate" title={t.description || t.merchant}>
                                 {t.description || t.merchant || '—'}
                               </td>
+                              <td className="py-3 px-4">
+                                {t.category ? (
+                                  <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-semibold ${catStyle}`}>
+                                    {t.category}
+                                  </span>
+                                ) : <span className="text-gray-300">—</span>}
+                              </td>
                               <td className={`py-3 px-4 text-right font-bold ${isCredit ? 'text-emerald-600' : 'text-red-500'}`}>
-                                {isCredit ? '+' : '-'}${Math.abs(parseFloat(t.amount || 0)).toFixed(2)}
+                                {isCredit ? '+' : '-'}{formatINR(Math.abs(parseFloat(t.amount || 0)))}
                               </td>
                               <td className="py-3 px-4 text-center">
                                 <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold ${isCredit ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-600'
@@ -352,8 +400,8 @@ export default function UploadPage() {
                   <button
                     onClick={() => copyRaw(result.rawText)}
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${copiedRaw
-                        ? 'bg-emerald-100 text-emerald-700'
-                        : 'bg-gray-100 hover:bg-gray-200 text-gray-600'
+                      ? 'bg-emerald-100 text-emerald-700'
+                      : 'bg-gray-100 hover:bg-gray-200 text-gray-600'
                       }`}
                   >
                     {copiedRaw
